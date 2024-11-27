@@ -12,10 +12,101 @@ const io = require('socket.io')(server);
 // Add more logging
 console.log('Starting server...');
 
+// Add admin credentials
+const ADMIN_USERNAME = 'MGN';
+const ADMIN_PASSWORD = 'MGN';
+
+// Initialize Firebase Admin
+console.log('Attempting to initialize Firebase Admin...');
+try {
+    const serviceAccount = require('./gamer-app-10a85-firebase-adminsdk-5t1bn-f31e3a1060.json');
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: process.env.DATABASE_URL || 'https://gamer-app-10a85-default-rtdb.firebaseio.com'
+    });
+    console.log('Firebase Admin initialized successfully');
+} catch (error) {
+    console.error('Error initializing Firebase Admin:', error);
+    process.exit(1);
+}
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+/ Update login endpoint to check for admin
+apiRouter.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        console.log('Login attempt:', username);
+
+        // Check if admin login
+        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+            return res.json({ success: true, username, isAdmin: true });
+        }
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        const bannedRef = await admin.database().ref(`bannedUsers/${username}`).once('value');
+        if (bannedRef.exists()) {
+            return res.status(403).json(bannedRef.val());
+        }
+        
+        res.json({ success: true, username, isAdmin: false });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Add admin endpoints
+apiRouter.post('/admin/clear-messages', async (req, res) => {
+    const { username } = req.body;
+    if (username === ADMIN_USERNAME) {
+        await admin.database().ref('messages').remove();
+        io.emit('messagesCleared');
+        res.json({ success: true });
+    } else {
+        res.status(403).json({ error: 'Unauthorized' });
+    }
+});
+
+// Update ban endpoint to check admin
+apiRouter.post('/users/ban', async (req, res) => {
+    try {
+        const { username, reason, bannedBy } = req.body;
+        if (bannedBy !== ADMIN_USERNAME) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        await admin.database().ref(`bannedUsers/${username}`).set({
+            reason,
+            bannedBy,
+            bannedAt: Date.now()
+        });
+        io.emit('userBanned', { username, reason, bannedBy });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to ban user' });
+    }
+});
+
+// Update unban endpoint to check admin
+apiRouter.delete('/users/ban/:username', async (req, res) => {
+    try {
+        const { adminUsername } = req.body;
+        if (adminUsername !== ADMIN_USERNAME) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        await admin.database().ref(`bannedUsers/${req.params.username}`).remove();
+        io.emit('userUnbanned', req.params.username);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to unban user' });
+    }
+});
 
 // Initialize Firebase Admin
 console.log('Attempting to initialize Firebase Admin...');
@@ -178,3 +269,21 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
 }); 
+// In web/server.js
+// Admin credentials
+const ADMIN_USERNAME = 'MGN';
+const ADMIN_PASSWORD = 'MGN';
+
+// Admin endpoints
+apiRouter.post('/admin/clear-messages', (req, res) => {
+    const { username } = req.body;
+    if (username === ADMIN_USERNAME) {
+        messages.length = 0;
+        io.emit('messagesCleared');
+        res.json({ success: true });
+    } else {
+        res.status(403).json({ error: 'Unauthorized' });
+    }
+});
+
+// Other admin endpoints...
