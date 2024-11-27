@@ -1,33 +1,27 @@
 const admin = require('firebase-admin');
 
 try {
-  console.log('Starting Firebase initialization...');
-  
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT environment variable');
-  }
-  
-  if (!process.env.FIREBASE_DATABASE_URL) {
-    throw new Error('Missing FIREBASE_DATABASE_URL environment variable');
+    console.error('FIREBASE_SERVICE_ACCOUNT is missing');
+    throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required');
   }
 
-  // Parse the service account JSON from environment variable
+  if (!process.env.FIREBASE_DATABASE_URL) {
+    console.error('FIREBASE_DATABASE_URL is missing');
+    throw new Error('FIREBASE_DATABASE_URL environment variable is required');
+  }
+
+  console.log('Initializing Firebase...');
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  console.log('Service account parsed successfully');
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: process.env.FIREBASE_DATABASE_URL
   });
-
-  console.log('Firebase initialized successfully');
   
-  // Test database connection
-  const db = admin.database();
-  console.log('Database connection established');
-
+  console.log('Firebase initialized successfully');
 } catch (error) {
-  console.error('Firebase initialization error:', error);
+  console.error('Firebase initialization failed:', error);
   throw error;
 }
 
