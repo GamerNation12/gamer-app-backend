@@ -119,3 +119,19 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`API available at http://localhost:${PORT}/api`);
 });
+// Add to Socket.IO connection handling
+io.on('connection', (socket) => {
+    console.log('User connected');
+    
+    socket.on('typing', (username) => {
+        socket.broadcast.emit('userTyping', username);
+    });
+
+    socket.on('stopTyping', (username) => {
+        socket.broadcast.emit('userStopTyping', username);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+    });
+});
