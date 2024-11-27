@@ -6,6 +6,8 @@ const http = require('http');
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server);
+const messagesRouter = require('./routes/messages');
+app.use('/api', messagesRouter);
 
 // In-memory storage
 const messages = [];
@@ -19,9 +21,11 @@ const ADMIN_PASSWORD = 'MGN';
 console.log('Starting server...');
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
+app.use(cors({
+    origin: 'https://gamer-app-10a85.web.app',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }));
 
 // Logging middleware
 app.use((req, res, next) => {
