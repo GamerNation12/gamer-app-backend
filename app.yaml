@@ -1,5 +1,0 @@
-runtime: nodejs18
-service: gamer-app-backend
-
-env_variables:
-  DATABASE_URL: "https://gamer-app-10a85-default-rtdb.firebaseio.com" 
