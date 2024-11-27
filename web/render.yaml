@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: gamer-app-backend
-    env: node
-    buildCommand: npm install
-    startCommand: node server.js
-    envVars:
-      - key: DATABASE_URL
-        value: https://gamer-app-10a85-default-rtdb.firebaseio.com 
