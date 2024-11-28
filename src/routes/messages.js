@@ -2,60 +2,56 @@ const admin = require('../config/firebase');
 const express = require('express');
 const router = express.Router();
 
-router.post('/messages', async (req, res) => {
+// GET messages route
+router.get('/', async (req, res) => {
   try {
-    console.log('Received full request body:', req.body);
-    console.log('Request body type:', typeof req.body);
+    const messagesRef = admin.database().ref('messages');
+    const snapshot = await messagesRef.once('value');
+    const messages = snapshot.val() || {};
+    res.status(200).json(Object.values(messages));
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-    // Extract message text properly
-    const messageText = typeof req.body === 'string' ? req.body : req.body.text;
+// POST message route
+router.post('/', async (req, res) => {
+  try {
+    console.log('Received request body:', req.body);
 
     // Create message object
     const message = {
-      text: messageText,
-      userId: 'MGN',  // Hardcoded for now
+      text: req.body.text || req.body,
+      userId: req.body.userId || 'MGN',
       timestamp: Date.now()
     };
 
-    console.log('Attempting to save message:', message);
+    console.log('Processing message:', message);
 
-    // Validate the message
+    // Validate message
     if (!message.text) {
-      console.log('Message validation failed - text is missing');
       return res.status(400).json({
         success: false,
         error: 'Message text is required'
       });
     }
 
-    // Reference to your messages collection
+    // Save to Firebase
     const messagesRef = admin.database().ref('messages');
-    
-    // Push to Firebase
-    const result = await messagesRef.push({
-      text: String(message.text),  // Ensure text is a string
-      userId: String(message.userId),  // Ensure userId is a string
-      timestamp: Number(message.timestamp)  // Ensure timestamp is a number
-    });
+    const result = await messagesRef.push(message);
 
-    console.log('Message successfully saved with ID:', result.key);
+    console.log('Message saved with ID:', result.key);
     
     res.status(200).json({ 
       success: true, 
-      message: 'Message saved successfully',
-      messageId: result.key,
-      savedMessage: message
+      messageId: result.key
     });
   } catch (error) {
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
+    console.error('Error saving message:', error);
     res.status(500).json({ 
       success: false, 
-      error: error.message,
-      details: 'Failed to save message to database'
+      error: error.message 
     });
   }
 });
