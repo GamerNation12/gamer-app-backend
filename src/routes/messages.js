@@ -8,18 +8,18 @@ router.post('/messages', async (req, res) => {
 
     // Extract message from the request body
     const message = {
-      text: req.body.message || req.body.text,
-      userId: req.body.userId,
-      timestamp: req.body.timestamp || Date.now()
+      text: req.body, // Change this to handle direct text input
+      userId: 'MGN',  // Get this from the logged-in user
+      timestamp: Date.now()
     };
 
     console.log('Processed message:', message);
 
-    // Validate both text and userId
-    if (!message.text || !message.userId) {
+    // Validate the message
+    if (!message.text) {
       return res.status(400).json({
         success: false,
-        error: 'Both message text and userId are required'
+        error: 'Message text is required'
       });
     }
 
