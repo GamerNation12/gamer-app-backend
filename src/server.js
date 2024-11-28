@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const messagesRouter = require('./routes/messages'); // Add this back
 
 const app = express();
 const server = http.createServer(app);
@@ -15,8 +16,7 @@ const io = require('socket.io')(server, {
     }
 });
 
-// In-memory storage
-const messages = [];
+// In-memory storage for users only
 const bannedUsers = new Map();
 let maintenanceMode = { enabled: false };
 
@@ -61,20 +61,9 @@ apiRouter.post('/login', (req, res) => {
     res.json({ success: true, username, isAdmin: false });
 });
 
-// Message routes
-apiRouter.get('/messages', (req, res) => {
-    res.json(messages);
-});
-
-apiRouter.post('/messages', (req, res) => {
-    const message = req.body;
-    messages.push(message);
-    io.emit('newMessage', message);
-    res.json({ success: true });
-});
-
-// Mount API router
+// Mount routers
 app.use('/api', apiRouter);
+app.use('/api', messagesRouter); // Use the Firebase messages router
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
