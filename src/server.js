@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const messagesRouter = require('./routes/messages'); // Add this back
+const messagesRouter = require('./routes/messages');
 
 const app = express();
 const server = http.createServer(app);
@@ -61,9 +61,9 @@ apiRouter.post('/login', (req, res) => {
     res.json({ success: true, username, isAdmin: false });
 });
 
-// Mount routers
+// Mount routers - Fix the paths
 app.use('/api', apiRouter);
-app.use('/api', messagesRouter); // Use the Firebase messages router
+app.use('/api/messages', messagesRouter); // Mount messages router at specific path
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
