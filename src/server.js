@@ -14,7 +14,6 @@ const io = require('socket.io')(server, {
         credentials: true
     }
 });
-const messagesRouter = require('./routes/messages');
 
 // In-memory storage
 const messages = [];
@@ -27,7 +26,7 @@ const ADMIN_PASSWORD = 'MGN';
 
 console.log('Starting server...');
 
-// Middleware
+// Middleware first
 app.use(cors({
     origin: ['https://gamer-app-10a85.web.app', 'https://gamer-app-backend.onrender.com'],
     methods: ['GET', 'POST'],
@@ -62,8 +61,19 @@ apiRouter.post('/login', (req, res) => {
     res.json({ success: true, username, isAdmin: false });
 });
 
-// Use messages router and API router
-app.use('/api', messagesRouter);
+// Message routes
+apiRouter.get('/messages', (req, res) => {
+    res.json(messages);
+});
+
+apiRouter.post('/messages', (req, res) => {
+    const message = req.body;
+    messages.push(message);
+    io.emit('newMessage', message);
+    res.json({ success: true });
+});
+
+// Mount API router
 app.use('/api', apiRouter);
 
 // Socket.IO connection handling
