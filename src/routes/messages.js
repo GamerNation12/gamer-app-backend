@@ -5,19 +5,31 @@ const router = express.Router();
 // GET messages route
 router.get('/', async (req, res) => {
   try {
+    // Check if Firebase is initialized
+    if (!admin.apps.length) {
+      console.log('Firebase not initialized, returning empty messages array');
+      return res.status(200).json([]);
+    }
+
     const messagesRef = admin.database().ref('messages');
     const snapshot = await messagesRef.once('value');
     const messages = snapshot.val() || {};
     res.status(200).json(Object.values(messages));
   } catch (error) {
     console.error('Error fetching messages:', error);
-    res.status(500).json({ success: false, error: error.message });
+    // Return empty array instead of error for GET requests
+    res.status(200).json([]);
   }
 });
 
 // POST message route
 router.post('/', async (req, res) => {
   try {
+    // Check if Firebase is initialized
+    if (!admin.apps.length) {
+      throw new Error('Firebase not initialized');
+    }
+
     console.log('Received request body:', req.body);
 
     // Create message object
