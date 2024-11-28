@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server);
 const messagesRouter = require('./routes/messages');
-app.use('/api', messagesRouter);
 
 // In-memory storage
 const messages = [];
@@ -25,7 +24,9 @@ app.use(cors({
     origin: 'https://gamer-app-10a85.web.app',
     methods: ['GET', 'POST'],
     credentials: true
-  }));
+}));
+
+app.use(express.json()); // Add this line to parse JSON bodies
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -36,76 +37,24 @@ app.use((req, res, next) => {
 // API Router
 const apiRouter = express.Router();
 
-// Login endpoint with admin check
-apiRouter.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    
-    // Check if admin login
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        return res.json({ success: true, username, isAdmin: true });
-    }
-    
-    // Regular user login
-    if (bannedUsers.has(username)) {
-        return res.status(403).json(bannedUsers.get(username));
-    }
-    res.json({ success: true, username, isAdmin: false });
-});
+// Use messages router
+app.use('/api', messagesRouter);
 
-// Messages endpoints
-apiRouter.get('/messages', (req, res) => {
-    res.json(messages);
-});
+// Rest of your routes...
+// [Keep all the existing route definitions]
 
-apiRouter.post('/messages', (req, res) => {
-    const message = req.body;
-    messages.push(message);
-    io.emit('newMessage', message);
-    res.json({ success: true });
-});
-
-// Admin endpoints
-apiRouter.post('/admin/clear-messages', (req, res) => {
-    const { username } = req.body;
-    if (username === ADMIN_USERNAME) {
-        messages.length = 0;
-        io.emit('messagesCleared');
-        res.json({ success: true });
-    } else {
-        res.status(403).json({ error: 'Unauthorized' });
-    }
-});
-
-// Ban/Unban endpoints (admin only)
-apiRouter.post('/users/ban', (req, res) => {
-    const { username, reason, bannedBy } = req.body;
-    if (bannedBy === ADMIN_USERNAME) {
-        bannedUsers.set(username, { reason, bannedBy, bannedAt: Date.now() });
-        io.emit('userBanned', { username, reason, bannedBy });
-        res.json({ success: true });
-    } else {
-        res.status(403).json({ error: 'Unauthorized' });
-    }
-});
-
-apiRouter.delete('/users/ban/:username', (req, res) => {
-    const { adminUsername } = req.body;
-    if (adminUsername === ADMIN_USERNAME) {
-        bannedUsers.delete(req.params.username);
-        io.emit('userUnbanned', req.params.username);
-        res.json({ success: true });
-    } else {
-        res.status(403).json({ error: 'Unauthorized' });
-    }
-});
-
-// Mount API routes
-app.use('/api', apiRouter);
-
-// Socket.IO connection handling
+// Socket.IO connection handling - Combined version
 io.on('connection', (socket) => {
     console.log('User connected');
     
+    socket.on('typing', (username) => {
+        socket.broadcast.emit('userTyping', username);
+    });
+
+    socket.on('stopTyping', (username) => {
+        socket.broadcast.emit('userStopTyping', username);
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
@@ -122,20 +71,4 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`API available at http://localhost:${PORT}/api`);
-});
-// Add to Socket.IO connection handling
-io.on('connection', (socket) => {
-    console.log('User connected');
-    
-    socket.on('typing', (username) => {
-        socket.broadcast.emit('userTyping', username);
-    });
-
-    socket.on('stopTyping', (username) => {
-        socket.broadcast.emit('userStopTyping', username);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
-    });
 });
