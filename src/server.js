@@ -5,7 +5,15 @@ const http = require('http');
 
 const app = express();
 const server = http.createServer(app);
-const io = require('socket.io')(server);
+
+// Update Socket.IO configuration to handle CORS
+const io = require('socket.io')(server, {
+    cors: {
+        origin: ['https://gamer-app-10a85.web.app', 'https://gamer-app-backend.onrender.com'],
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
 const messagesRouter = require('./routes/messages');
 
 // In-memory storage
@@ -21,7 +29,7 @@ console.log('Starting server...');
 
 // Middleware
 app.use(cors({
-    origin: 'https://gamer-app-10a85.web.app',
+    origin: ['https://gamer-app-10a85.web.app', 'https://gamer-app-backend.onrender.com'],
     methods: ['GET', 'POST'],
     credentials: true
 }));
@@ -85,5 +93,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`API available at http://localhost:${PORT}/api`);
+    console.log(`API available at https://gamer-app-backend.onrender.com/api`);
 });
