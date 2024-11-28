@@ -26,7 +26,7 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json()); // Add this line to parse JSON bodies
+app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -34,16 +34,31 @@ app.use((req, res, next) => {
     next();
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // API Router
 const apiRouter = express.Router();
 
-// Use messages router
+// Login endpoint with admin check
+apiRouter.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        return res.json({ success: true, username, isAdmin: true });
+    }
+    if (bannedUsers.has(username)) {
+        return res.status(403).json(bannedUsers.get(username));
+    }
+    res.json({ success: true, username, isAdmin: false });
+});
+
+// Use messages router and API router
 app.use('/api', messagesRouter);
+app.use('/api', apiRouter);
 
-// Rest of your routes...
-// [Keep all the existing route definitions]
-
-// Socket.IO connection handling - Combined version
+// Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected');
     
