@@ -9,7 +9,7 @@ router.post('/messages', async (req, res) => {
     // Extract message from the request body
     const message = {
       text: req.body, // Change this to handle direct text input
-      userId: 'MGN',  // Get this from the logged-in user
+      userId: '',  // Get this from the logged-in user
       timestamp: Date.now()
     };
 
