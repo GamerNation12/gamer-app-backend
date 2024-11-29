@@ -2,46 +2,50 @@ const express = require('express');
 const router = express.Router();
 const admin = require('../config/firebase');
 
+// ... keep GET route the same ...
+
 router.post('/', async (req, res) => {
   try {
     console.log('Received message:', req.body);
-    console.log('Firebase apps length:', admin.apps.length); // Add this log
+    console.log('Firebase apps length:', admin.apps.length);
 
-    const messageText = req.body.message || req.body;
-    
-    if (!messageText) {
-      console.log('Message text is empty'); // Add this log
+    // Validate the incoming message
+    if (!req.body || !req.body.content) {
+      console.log('Message content is empty');
       return res.status(400).json({
         success: false,
-        error: 'Message is required'
+        error: 'Message content is required'
       });
     }
 
+    // Create message object using the incoming format
     const message = {
-      text: messageText,
-      userId: 'MGN',
-      timestamp: Date.now()
+      id: req.body.id,
+      sender: req.body.sender,
+      content: req.body.content,
+      timestamp: req.body.timestamp,
+      platform: req.body.platform
     };
 
-    console.log('Attempting to save message:', message); // Add this log
+    console.log('Attempting to save message:', message);
 
     // Save to Firebase if initialized
     if (admin.apps.length) {
-      console.log('Firebase is initialized, saving message...'); // Add this log
+      console.log('Firebase is initialized, saving message...');
       const messagesRef = admin.database().ref('messages');
       try {
         const result = await messagesRef.push(message);
-        console.log('Message saved successfully with key:', result.key); // Add this log
+        console.log('Message saved successfully with key:', result.key);
         return res.status(200).json({ 
           success: true,
           messageId: result.key
         });
       } catch (dbError) {
-        console.error('Database operation error:', dbError); // Add this log
+        console.error('Database operation error:', dbError);
         throw dbError;
       }
     } else {
-      console.log('Firebase is not initialized'); // Add this log
+      console.log('Firebase is not initialized');
       return res.status(200).json({ 
         success: true,
         message: 'Message received (Firebase not initialized)'
@@ -54,11 +58,6 @@ router.post('/', async (req, res) => {
       error: error.message 
     });
   }
-});
-
-// Keep the GET route as is
-router.get('/', async (req, res) => {
-  // ... existing get handler code ...
 });
 
 module.exports = router;
