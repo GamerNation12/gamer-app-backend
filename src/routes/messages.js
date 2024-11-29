@@ -1,62 +1,36 @@
-const admin = require('../config/firebase');
-const express = require('express');
-const router = express.Router();
-
-// GET messages route
-router.get('/', async (req, res) => {
-  try {
-    // Check if Firebase is initialized
-    if (!admin.apps.length) {
-      console.log('Firebase not initialized, returning empty messages array');
-      return res.status(200).json([]);
-    }
-
-    const messagesRef = admin.database().ref('messages');
-    const snapshot = await messagesRef.once('value');
-    const messages = snapshot.val() || {};
-    res.status(200).json(Object.values(messages));
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    // Return empty array instead of error for GET requests
-    res.status(200).json([]);
-  }
-});
-
-// POST message route
 router.post('/', async (req, res) => {
   try {
-    // Check if Firebase is initialized
-    if (!admin.apps.length) {
-      throw new Error('Firebase not initialized');
-    }
+    console.log('Received message:', req.body);
 
-    console.log('Received request body:', req.body);
-
-    // Create message object
-    const message = {
-      text: req.body.text || req.body,
-      userId: req.body.userId || 'MGN',
-      timestamp: Date.now()
-    };
-
-    console.log('Processing message:', message);
-
-    // Validate message
-    if (!message.text) {
+    const messageText = req.body.message || req.body;
+    
+    if (!messageText) {
       return res.status(400).json({
         success: false,
-        error: 'Message text is required'
+        error: 'Message is required'
       });
     }
 
-    // Save to Firebase
+    const message = {
+      text: messageText,
+      userId: 'MGN',
+      timestamp: Date.now()
+    };
+
+    // Save to Firebase if initialized
+    if (!admin.apps.length) {
+      // If Firebase isn't initialized, just return success
+      return res.status(200).json({ 
+        success: true,
+        message: 'Message received (Firebase not initialized)'
+      });
+    }
+
     const messagesRef = admin.database().ref('messages');
     const result = await messagesRef.push(message);
-
-    console.log('Message saved with ID:', result.key);
     
     res.status(200).json({ 
-      success: true, 
+      success: true,
       messageId: result.key
     });
   } catch (error) {
@@ -67,5 +41,3 @@ router.post('/', async (req, res) => {
     });
   }
 });
-
-module.exports = router;
