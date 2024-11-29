@@ -1,5 +1,5 @@
 // Location: gamer-app-backend/src/server.js
-// This is the main server file that sets up Express and Socket.IO
+// Main server file that sets up Express and Socket.IO
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -12,9 +12,14 @@ const server = http.createServer(app);
 // Update Socket.IO configuration to handle CORS
 const io = require('socket.io')(server, {
     cors: {
-        origin: ['https://gamer-app-10a85.web.app', 'https://gamer-app-backend.onrender.com'],
+        origin: [
+            'https://gamer-app-10a85.web.app',
+            'https://gamer-app-backend.onrender.com',
+            'http://localhost:5000'  // For local testing
+        ],
         methods: ['GET', 'POST'],
-        credentials: true
+        credentials: true,
+        allowedHeaders: ['Content-Type']
     }
 });
 
@@ -30,9 +35,14 @@ console.log('Starting server...');
 
 // Middleware first
 app.use(cors({
-    origin: ['https://gamer-app-10a85.web.app', 'https://gamer-app-backend.onrender.com'],
+    origin: [
+        'https://gamer-app-10a85.web.app',
+        'https://gamer-app-backend.onrender.com',
+        'http://localhost:5000'  // For local testing
+    ],
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type']
 }));
 
 app.use(express.json());
@@ -63,14 +73,19 @@ apiRouter.post('/login', (req, res) => {
     res.json({ success: true, username, isAdmin: false });
 });
 
-// Mount routers - Fix the paths
+// Mount routers
 app.use('/api', apiRouter);
-app.use('/api/messages', messagesRouter); // Mount messages router at specific path
+app.use('/api/messages', messagesRouter);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected');
     
+    socket.on('newMessage', (message) => {
+        console.log('Broadcasting new message:', message);
+        socket.broadcast.emit('newMessage', message);
+    });
+
     socket.on('typing', (username) => {
         socket.broadcast.emit('userTyping', username);
     });
@@ -95,29 +110,4 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`API available at https://gamer-app-backend.onrender.com/api`);
-});
-// Update CORS configuration
-app.use(cors({
-    origin: [
-        'https://gamer-app-10a85.web.app',
-        'https://gamer-app-backend.onrender.com',
-        'http://localhost:5000'  // Add this for local testing
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['Content-Type']
-}));
-
-// Update Socket.IO CORS configuration
-const io = require('socket.io')(server, {
-    cors: {
-        origin: [
-            'https://gamer-app-10a85.web.app',
-            'https://gamer-app-backend.onrender.com',
-            'http://localhost:5000'  // Add this for local testing
-        ],
-        methods: ['GET', 'POST'],
-        credentials: true,
-        allowedHeaders: ['Content-Type']
-    }
 });
