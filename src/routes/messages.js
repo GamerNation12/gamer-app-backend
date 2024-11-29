@@ -1,3 +1,7 @@
+const express = require('express');
+const router = express.Router();
+const admin = require('../config/firebase');
+
 router.post('/', async (req, res) => {
   try {
     console.log('Received message:', req.body);
@@ -41,3 +45,5 @@ router.post('/', async (req, res) => {
     });
   }
 });
+
+module.exports = router;
