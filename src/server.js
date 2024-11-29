@@ -1,3 +1,5 @@
+// Location: gamer-app-backend/src/server.js
+// This is the main server file that sets up Express and Socket.IO
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -93,4 +95,29 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`API available at https://gamer-app-backend.onrender.com/api`);
+});
+// Update CORS configuration
+app.use(cors({
+    origin: [
+        'https://gamer-app-10a85.web.app',
+        'https://gamer-app-backend.onrender.com',
+        'http://localhost:5000'  // Add this for local testing
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['Content-Type']
+}));
+
+// Update Socket.IO CORS configuration
+const io = require('socket.io')(server, {
+    cors: {
+        origin: [
+            'https://gamer-app-10a85.web.app',
+            'https://gamer-app-backend.onrender.com',
+            'http://localhost:5000'  // Add this for local testing
+        ],
+        methods: ['GET', 'POST'],
+        credentials: true,
+        allowedHeaders: ['Content-Type']
+    }
 });

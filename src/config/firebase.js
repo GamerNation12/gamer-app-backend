@@ -1,3 +1,5 @@
+// Location: gamer-app-backend/src/config/firebase.js
+// Firebase admin configuration for the backend
 const admin = require('firebase-admin');
 
 try {
