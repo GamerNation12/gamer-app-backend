@@ -28,6 +28,9 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
+// Store messages in memory (temporary solution)
+let messages = [];
+
 // Mount the routes
 const authRouter = require('./routes/auth');
 const messagesRouter = require('./routes/messages');
@@ -37,6 +40,9 @@ app.use('/api', messagesRouter);
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
+
+  // Send existing messages to newly connected client
+  socket.emit('receive_messages', { messages });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
@@ -52,8 +58,12 @@ io.on('connection', (socket) => {
       platform: data.platform || 'Web'
     };
     
+    // Add message to array
+    messages.push(message);
+    
     // Broadcast the formatted message to all connected clients
     io.emit('receive_message', message);
+    io.emit('receive_messages', { messages }); // Send updated messages array
     console.log('Message broadcasted:', message);
   });
 });
