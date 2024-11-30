@@ -42,10 +42,19 @@ io.on('connection', (socket) => {
     console.log('Client disconnected:', socket.id);
   });
 
-  // Handle message events
+  // Handle message events with proper message format
   socket.on('send_message', (data) => {
-    // Broadcast the message to all connected clients
-    io.emit('receive_message', data);
+    const message = {
+      id: data.id || Date.now().toString(),
+      sender: data.sender,
+      content: data.content,
+      timestamp: data.timestamp || Date.now(),
+      platform: data.platform || 'Web'
+    };
+    
+    // Broadcast the formatted message to all connected clients
+    io.emit('receive_message', message);
+    console.log('Message broadcasted:', message);
   });
 });
 
