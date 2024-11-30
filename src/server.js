@@ -1,18 +1,30 @@
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors');
 
 const app = express();
 const httpServer = createServer(app);
+
+// Enable CORS for regular HTTP requests
+app.use(cors({
+  origin: 'https://gamer-app-10a85.web.app',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
+// Initialize Socket.IO with CORS settings
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://gamer-app-10a85.web.app", // e.g., "http://localhost:3000"
-    methods: ["GET", "POST"]
+    origin: "https://gamer-app-10a85.web.app",
+    methods: ["GET", "POST"],
+    credentials: true
   },
-  pingTimeout: 60000, // Increase ping timeout to 60 seconds
-  pingInterval: 25000 // Send ping every 25 seconds
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
+// Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
@@ -23,7 +35,11 @@ io.on('connection', (socket) => {
   // Add your other socket event handlers here
 });
 
-const PORT = process.env.PORT || 3000;
+// Your API routes
+const messagesRouter = require('./src/routes/messages');
+app.use('/api', messagesRouter);
+
+const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
