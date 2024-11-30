@@ -28,9 +28,11 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
-// Mount the auth routes
+// Mount the routes
 const authRouter = require('./routes/auth');
+const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
+app.use('/api', messagesRouter);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -38,6 +40,12 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
+  });
+
+  // Handle message events
+  socket.on('send_message', (data) => {
+    // Broadcast the message to all connected clients
+    io.emit('receive_message', data);
   });
 });
 
