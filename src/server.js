@@ -35,10 +35,6 @@ io.on('connection', (socket) => {
   // Add your other socket event handlers here
 });
 
-// Your API routes
-const messagesRouter = require('./src/routes/messages');
-app.use('/api', messagesRouter);
-
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
