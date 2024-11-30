@@ -4,10 +4,9 @@ const router = express.Router();
 // Get messages
 router.get('/messages', async (req, res) => {
   try {
-    // Return messages in the expected array format
-    res.status(200).json({
-      messages: [] // This will be populated with actual messages
-    });
+    // Access the messages array from the global scope
+    const messages = global.messages || [];
+    res.status(200).json({ messages }); // Send as {messages: [...]}
   } catch (error) {
     console.error('Error loading messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
@@ -32,9 +31,11 @@ router.post('/messages', async (req, res) => {
       platform: platform || 'Web'
     };
 
-    // TODO: Save message to database
+    // Add to global messages array
+    if (!global.messages) global.messages = [];
+    global.messages.push(message);
     
-    res.status(200).json({ message });
+    res.status(200).json({ messages: global.messages }); // Send back full array
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
