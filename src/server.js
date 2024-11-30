@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -5,6 +6,9 @@ const cors = require('cors');
 
 const app = express();
 const httpServer = createServer(app);
+
+// Add body parser middleware
+app.use(express.json());
 
 // Enable CORS for regular HTTP requests
 app.use(cors({
@@ -24,6 +28,10 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
+// Mount the auth routes
+const authRouter = require('./routes/auth');
+app.use('/api', authRouter);
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
@@ -31,8 +39,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
-
-  // Add your other socket event handlers here
 });
 
 const PORT = process.env.PORT || 3001;
