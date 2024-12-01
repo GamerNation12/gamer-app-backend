@@ -22,22 +22,6 @@ const httpServer = createServer(app);
 // Initialize global messages array
 global.messages = [];
 
-// Load initial messages from Firebase
-async function loadMessagesFromDB() {
-  try {
-    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
-    global.messages = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })).reverse();
-    console.log('Successfully loaded messages from database:', global.messages.length);
-    return global.messages;
-  } catch (error) {
-    console.error('Error loading messages from DB:', error);
-    return [];
-  }
-}
-
 // Add body parser middleware
 app.use(express.json());
 
@@ -64,6 +48,22 @@ const authRouter = require('./routes/auth');
 const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
+
+// Load initial messages from Firebase
+async function loadMessagesFromDB() {
+  try {
+    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
+    global.messages = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })).reverse();
+    console.log('Successfully loaded messages from database:', global.messages.length);
+    return global.messages;
+  } catch (error) {
+    console.error('Error loading messages from DB:', error);
+    return [];
+  }
+}
 
 // Initialize server after loading messages
 async function initializeServer() {
