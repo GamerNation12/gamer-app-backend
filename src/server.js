@@ -1,24 +1,45 @@
-// Location: gamer-app-backend/src/server.js
-// Main server file that sets up Express and Socket.IO
-// Handles:
-// - Express server setup
-// - Socket.IO configuration
-// - CORS settings
-// - API routes mounting
-// - User authentication
-// - Real-time message broadcasting
-// - Admin functionality
 require('dotenv').config();
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+}
+
+const db = admin.firestore();
+const messagesRef = db.collection('messages');
 
 const app = express();
 const httpServer = createServer(app);
 
 // Initialize global messages array
 global.messages = [];
+
+// Load initial messages from Firebase
+async function loadMessagesFromDB() {
+  try {
+    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
+    global.messages = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })).reverse();
+    console.log('Successfully loaded messages from database:', global.messages.length);
+    return global.messages;
+  } catch (error) {
+    console.error('Error loading messages from DB:', error);
+    return [];
+  }
+}
+
+// Load messages when server starts
+loadMessagesFromDB();
 
 // Add body parser middleware
 app.use(express.json());
@@ -48,23 +69,19 @@ app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
 // Socket.IO connection handling
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log('Client connected:', socket.id);
 
-  // Handle request for messages
-  socket.on('request_messages', () => {
-    socket.emit('receive_messages', { 
-      messages: Array.isArray(global.messages) ? global.messages : [] 
-    });
-    console.log('Sent messages on request:', global.messages);
-  });
+  // Send existing messages to newly connected client
+  socket.emit('receive_messages', { messages: global.messages });
+  console.log('Sent initial messages:', global.messages);
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
 
-  // Handle receiving a new message
-  socket.on('send_message', (data) => {
+  // Handle message events with proper message format
+  socket.on('send_message', async (data) => {
     try {
       if (!data || !data.content) {
         console.error('Invalid message data received:', data);
@@ -73,25 +90,27 @@ io.on('connection', (socket) => {
 
       const message = {
         id: data.id || Date.now().toString(),
-        sender: data.sender || 'Anonymous',
+        sender: data.sender,
         content: data.content,
         timestamp: data.timestamp || Date.now(),
         platform: data.platform || 'Web'
       };
       
-      // Ensure messages is an array
-      if (!Array.isArray(global.messages)) {
-        global.messages = [];
-      }
+      // Save to Firebase
+      await messagesRef.doc(message.id).set(message);
+      console.log('Message saved to database:', message);
       
+      // Add to global messages array
       global.messages.push(message);
       
-      // Broadcast to all clients
-      io.emit('receive_messages', { 
-        messages: global.messages 
-      });
+      // Send the single new message to all clients
+      io.emit('receive_message', message);
       
-      console.log('Message broadcasted, current messages:', global.messages);
+      // Also send the updated full messages array
+      io.emit('receive_messages', { messages: global.messages });
+      
+      console.log('Message broadcasted:', message);
+      console.log('Current messages array:', global.messages);
     } catch (error) {
       console.error('Error handling message:', error);
     }
