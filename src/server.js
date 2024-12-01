@@ -1,3 +1,13 @@
+// Location: gamer-app-backend/src/server.js
+// Main server file that sets up Express and Socket.IO
+// Handles:
+// - Express server setup
+// - Socket.IO configuration
+// - CORS settings
+// - API routes mounting
+// - User authentication
+// - Real-time message broadcasting
+// - Admin functionality
 require('dotenv').config();
 const express = require('express');
 const { createServer } = require('http');
@@ -21,6 +31,22 @@ const httpServer = createServer(app);
 
 // Initialize global messages array
 global.messages = [];
+
+// Load initial messages from Firebase
+async function loadMessagesFromDB() {
+  try {
+    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
+    global.messages = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })).reverse();
+    console.log('Successfully loaded messages from database:', global.messages.length);
+    return global.messages;
+  } catch (error) {
+    console.error('Error loading messages from DB:', error);
+    return [];
+  }
+}
 
 // Add body parser middleware
 app.use(express.json());
@@ -49,29 +75,13 @@ const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
-// Load initial messages from Firebase
-async function loadMessagesFromDB() {
-  try {
-    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
-    global.messages = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })).reverse();
-    console.log('Successfully loaded messages from database:', global.messages.length);
-    return global.messages;
-  } catch (error) {
-    console.error('Error loading messages from DB:', error);
-    return [];
-  }
-}
-
 // Initialize server after loading messages
 async function initializeServer() {
   // Load messages first
   await loadMessagesFromDB();
 
   // Socket.IO connection handling
-  io.on('connection', async (socket) => {
+  io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
     // Send existing messages to newly connected client
@@ -82,14 +92,11 @@ async function initializeServer() {
       console.log('Client disconnected:', socket.id);
     });
 
-    // Handle message events with proper message format
+    // Handle receiving a new message
     socket.on('send_message', async (data) => {
       try {
-        if (!data || !data.content) {
-          console.error('Invalid message data received:', data);
-          return;
-        }
-
+        console.log('Received message data:', data);
+        
         const message = {
           id: data.id || Date.now().toString(),
           sender: data.sender,
@@ -98,7 +105,7 @@ async function initializeServer() {
           platform: data.platform || 'Web'
         };
         
-        // Save to Firebase
+        // Save to Firebase first
         await messagesRef.doc(message.id).set(message);
         console.log('Message saved to database:', message);
         
