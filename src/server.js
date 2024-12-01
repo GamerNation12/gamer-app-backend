@@ -38,9 +38,6 @@ async function loadMessagesFromDB() {
   }
 }
 
-// Load messages when server starts
-loadMessagesFromDB();
-
 // Add body parser middleware
 app.use(express.json());
 
@@ -68,56 +65,68 @@ const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
-// Socket.IO connection handling
-io.on('connection', async (socket) => {
-  console.log('Client connected:', socket.id);
+// Initialize server after loading messages
+async function initializeServer() {
+  // Load messages first
+  await loadMessagesFromDB();
 
-  // Send existing messages to newly connected client
-  socket.emit('receive_messages', { messages: global.messages });
-  console.log('Sent initial messages:', global.messages);
+  // Socket.IO connection handling
+  io.on('connection', async (socket) => {
+    console.log('Client connected:', socket.id);
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
+    // Send existing messages to newly connected client
+    socket.emit('receive_messages', { messages: global.messages });
+    console.log('Sent initial messages:', global.messages);
 
-  // Handle message events with proper message format
-  socket.on('send_message', async (data) => {
-    try {
-      if (!data || !data.content) {
-        console.error('Invalid message data received:', data);
-        return;
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+    });
+
+    // Handle message events with proper message format
+    socket.on('send_message', async (data) => {
+      try {
+        if (!data || !data.content) {
+          console.error('Invalid message data received:', data);
+          return;
+        }
+
+        const message = {
+          id: data.id || Date.now().toString(),
+          sender: data.sender,
+          content: data.content,
+          timestamp: data.timestamp || Date.now(),
+          platform: data.platform || 'Web'
+        };
+        
+        // Save to Firebase
+        await messagesRef.doc(message.id).set(message);
+        console.log('Message saved to database:', message);
+        
+        // Add to global messages array
+        global.messages.push(message);
+        
+        // Send the single new message to all clients
+        io.emit('receive_message', message);
+        
+        // Also send the updated full messages array
+        io.emit('receive_messages', { messages: global.messages });
+        
+        console.log('Message broadcasted:', message);
+        console.log('Current messages array:', global.messages);
+      } catch (error) {
+        console.error('Error handling message:', error);
       }
-
-      const message = {
-        id: data.id || Date.now().toString(),
-        sender: data.sender,
-        content: data.content,
-        timestamp: data.timestamp || Date.now(),
-        platform: data.platform || 'Web'
-      };
-      
-      // Save to Firebase
-      await messagesRef.doc(message.id).set(message);
-      console.log('Message saved to database:', message);
-      
-      // Add to global messages array
-      global.messages.push(message);
-      
-      // Send the single new message to all clients
-      io.emit('receive_message', message);
-      
-      // Also send the updated full messages array
-      io.emit('receive_messages', { messages: global.messages });
-      
-      console.log('Message broadcasted:', message);
-      console.log('Current messages array:', global.messages);
-    } catch (error) {
-      console.error('Error handling message:', error);
-    }
+    });
   });
-});
 
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  // Start server
+  const PORT = process.env.PORT || 3001;
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Start the server
+initializeServer().catch(error => {
+  console.error('Failed to initialize server:', error);
 });
