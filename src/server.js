@@ -1,3 +1,54 @@
+// Location: gamer-app-backend/src/server.js
+// Main server file that sets up Express and Socket.IO
+// Handles:
+// - Express server setup
+// - Socket.IO configuration
+// - CORS settings
+// - API routes mounting
+// - User authentication
+// - Real-time message broadcasting
+// - Admin functionality
+require('dotenv').config();
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  try {
+    console.log('Initializing Firebase Admin...');
+    const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('Firebase Admin initialized successfully');
+    
+    // Test Firebase connection
+    const db = admin.firestore();
+    db.collection('test').doc('test').set({
+      test: 'test',
+      timestamp: Date.now()
+    }).then(() => {
+      console.log('Firebase connection test successful');
+    }).catch((error) => {
+      console.error('Firebase connection test failed:', error);
+    });
+  } catch (error) {
+    console.error('Failed to initialize Firebase:', error);
+  }
+}
+
+const db = admin.firestore();
+const messagesRef = db.collection('messages');
+
+const app = express();
+const httpServer = createServer(app);
+
+// Initialize global messages array
+global.messages = [];
+
 // Load initial messages from Firebase
 async function loadMessagesFromDB() {
   try {
@@ -28,6 +79,33 @@ async function loadMessagesFromDB() {
   }
 }
 
+// Add body parser middleware
+app.use(express.json());
+
+// Enable CORS for regular HTTP requests
+app.use(cors({
+  origin: 'https://gamer-app-10a85.web.app',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
+// Initialize Socket.IO with CORS settings
+const io = new Server(httpServer, {
+  cors: {
+    origin: "https://gamer-app-10a85.web.app",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Mount the routes
+const authRouter = require('./routes/auth');
+const messagesRouter = require('./routes/messages');
+app.use('/api', authRouter);
+app.use('/api', messagesRouter);
+
 // Initialize server after loading messages
 async function initializeServer() {
   console.log('Starting server initialization...');
@@ -46,23 +124,46 @@ async function initializeServer() {
       socket.emit('receive_messages', { messages: global.messages });
       console.log('Sent initial messages to client:', global.messages.length);
 
-      // ... rest of the socket handling code ...
-    // Initialize server after loading messages
-async function initializeServer() {
-  console.log('Starting server initialization...');
-  try {
-    // Load messages first
-    console.log('Loading messages...');
-    const messages = await loadMessagesFromDB();
-    console.log('Loaded messages:', messages.length);
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+      });
 
-    // Socket.IO connection handling
-    io.on('connection', (socket) => {
-      // ... socket handling code ...
+      // Handle receiving a new message
+      socket.on('send_message', async (data) => {
+        try {
+          console.log('Received message data:', data);
+          
+          const message = {
+            id: data.id || Date.now().toString(),
+            sender: data.sender,
+            content: data.content,
+            timestamp: data.timestamp || Date.now(),
+            platform: data.platform || 'Web'
+          };
+          
+          // Save to Firebase first
+          await messagesRef.doc(message.id).set(message);
+          console.log('Message saved to database:', message);
+          
+          // Add to global messages array
+          global.messages.push(message);
+          
+          // Send the single new message to all clients
+          io.emit('receive_message', message);
+          
+          // Also send the updated full messages array
+          io.emit('receive_messages', { messages: global.messages });
+          
+          console.log('Message broadcasted:', message);
+          console.log('Current messages array:', global.messages);
+        } catch (error) {
+          console.error('Error handling message:', error);
+        }
+      });
     });
 
     // Start server with Render's port
-    const PORT = process.env.PORT || 10000; // Render expects port from env
+    const PORT = process.env.PORT || 3000;
     httpServer.listen(PORT, '0.0.0.0', () => { // Explicitly bind to all interfaces
       console.log(`Server running on port ${PORT}`);
       console.log('Messages loaded in memory:', global.messages.length);
@@ -72,3 +173,8 @@ async function initializeServer() {
     throw error;
   }
 }
+
+// Start the server
+initializeServer().catch(error => {
+  console.error('Failed to initialize server:', error);
+});
