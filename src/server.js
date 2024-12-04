@@ -47,11 +47,23 @@ async function initializeServer() {
       console.log('Sent initial messages to client:', global.messages.length);
 
       // ... rest of the socket handling code ...
+    // Initialize server after loading messages
+async function initializeServer() {
+  console.log('Starting server initialization...');
+  try {
+    // Load messages first
+    console.log('Loading messages...');
+    const messages = await loadMessagesFromDB();
+    console.log('Loaded messages:', messages.length);
+
+    // Socket.IO connection handling
+    io.on('connection', (socket) => {
+      // ... socket handling code ...
     });
 
-    // Start server
-    const PORT = process.env.PORT || 3001;
-    httpServer.listen(PORT, () => {
+    // Start server with Render's port
+    const PORT = process.env.PORT || 10000; // Render expects port from env
+    httpServer.listen(PORT, '0.0.0.0', () => { // Explicitly bind to all interfaces
       console.log(`Server running on port ${PORT}`);
       console.log('Messages loaded in memory:', global.messages.length);
     });
