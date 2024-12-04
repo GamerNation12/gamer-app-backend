@@ -16,6 +16,7 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin
+let db;
 if (!admin.apps.length) {
   try {
     console.log('Initializing Firebase Admin...');
@@ -25,22 +26,30 @@ if (!admin.apps.length) {
     });
     console.log('Firebase Admin initialized successfully');
     
-    // Test Firebase connection
-    const db = admin.firestore();
-    db.collection('test').doc('test').set({
+    db = admin.firestore();
+    
+    // Test Firebase connection with better error handling
+    const testDoc = db.collection('test').doc('connection-test');
+    await testDoc.set({
       test: 'test',
       timestamp: Date.now()
-    }).then(() => {
+    }, { merge: true })
+    .then(() => {
       console.log('Firebase connection test successful');
-    }).catch((error) => {
-      console.error('Firebase connection test failed:', error);
+    })
+    .catch((error) => {
+      console.error('Firebase connection test failed:', error.code, error.message);
+      // Don't throw error here, just log it
     });
   } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
+    console.error('Failed to initialize Firebase:', error.code, error.message);
+    // Initialize db anyway to prevent undefined errors
+    db = admin.firestore();
   }
+} else {
+  db = admin.firestore();
 }
 
-const db = admin.firestore();
 const messagesRef = db.collection('messages');
 
 const app = express();
@@ -53,6 +62,11 @@ global.messages = [];
 async function loadMessagesFromDB() {
   try {
     console.log('Starting to load messages from database...');
+    
+    // Verify database connection first
+    const testRead = await messagesRef.limit(1).get();
+    console.log('Database connection verified');
+    
     const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
     console.log('Got snapshot from database:', snapshot.size, 'documents');
     
@@ -61,20 +75,25 @@ async function loadMessagesFromDB() {
       return [];
     }
 
-    global.messages = snapshot.docs.map(doc => {
+    const messages = snapshot.docs.map(doc => {
       const data = doc.data();
-      console.log('Loading message:', data);
       return {
         id: doc.id,
         ...data
       };
     }).reverse();
     
-    console.log('Successfully loaded messages from database:', global.messages.length);
-    return global.messages;
+    global.messages = messages;
+    console.log('Successfully loaded messages from database:', messages.length);
+    return messages;
   } catch (error) {
-    console.error('Error loading messages from DB:', error);
-    console.error('Error details:', error.message, error.code);
+    console.error('Error loading messages from DB:', {
+      code: error.code,
+      message: error.message,
+      details: error.details
+    });
+    
+    // Return empty array but don't stop server
     return [];
   }
 }
