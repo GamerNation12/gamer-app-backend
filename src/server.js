@@ -8,12 +8,16 @@
 // - User authentication
 // - Real-time message broadcasting
 // - Admin functionality
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const admin = require('firebase-admin');
+import dotenv from 'dotenv';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import admin from 'firebase-admin';
+import authRouter from './routes/auth.js';
+import messagesRouter from './routes/messages.js';
+
+dotenv.config();
 
 // Initialize Firebase Admin
 let db;
@@ -39,11 +43,9 @@ if (!admin.apps.length) {
     })
     .catch((error) => {
       console.error('Firebase connection test failed:', error.code, error.message);
-      // Don't throw error here, just log it
     });
   } catch (error) {
     console.error('Failed to initialize Firebase:', error.code, error.message);
-    // Initialize db anyway to prevent undefined errors
     db = admin.firestore();
   }
 } else {
@@ -51,7 +53,6 @@ if (!admin.apps.length) {
 }
 
 const messagesRef = db.collection('messages');
-
 const app = express();
 const httpServer = createServer(app);
 
@@ -92,8 +93,6 @@ async function loadMessagesFromDB() {
       message: error.message,
       details: error.details
     });
-    
-    // Return empty array but don't stop server
     return [];
   }
 }
@@ -120,8 +119,6 @@ const io = new Server(httpServer, {
 });
 
 // Mount the routes
-const authRouter = require('./routes/auth');
-const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
@@ -182,7 +179,7 @@ async function initializeServer() {
     });
 
     // Start server with Render's port
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 10000;
     httpServer.listen(PORT, '0.0.0.0', () => { // Explicitly bind to all interfaces
       console.log(`Server running on port ${PORT}`);
       console.log('Messages loaded in memory:', global.messages.length);
