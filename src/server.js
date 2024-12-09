@@ -6,29 +6,49 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const admin = require('firebase-admin');
 
+// Helper function for broadcasting logs
+function broadcastLog(type, message, data = null) {
+  const logEntry = {
+    timestamp: Date.now(),
+    type: type,
+    message: message,
+    data: data
+  };
+  
+  console.log(`[${type}] ${message}`, data || '');
+  
+  // Broadcast to all connected clients if io is initialized
+  if (io) {
+    io.emit('server_log', logEntry);
+  }
+}
+
 // Initialize Firebase Admin
 let db;
 if (!admin.apps.length) {
   try {
-    console.log('Initializing Firebase Admin...');
+    broadcastLog('Firebase', 'Starting initialization...');
     const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    broadcastLog('Firebase', 'Service account parsed successfully');
+    
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
     });
-    console.log('Firebase Admin initialized successfully');
+    broadcastLog('Firebase', 'Admin initialized with project:', serviceAccount.project_id);
     
     db = admin.firestore();
+    broadcastLog('Firebase', 'Firestore instance created');
     
     await db.collection('messages').get()
       .then(() => {
-        console.log('Firebase connection test successful');
+        broadcastLog('Firebase', 'Connection test successful');
       })
       .catch((error) => {
-        console.error('Firebase connection test failed:', error);
+        broadcastLog('Error', 'Firebase connection test failed', { code: error.code, message: error.message });
       });
   } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
+    broadcastLog('Error', 'Firebase initialization failed', { code: error.code, message: error.message });
     throw error;
   }
 } else {
@@ -45,7 +65,7 @@ global.messages = [];
 // Load initial messages from Firebase
 async function loadMessagesFromDB() {
   try {
-    console.log('Starting to load messages from database...');
+    broadcastLog('Messages', 'Starting to load messages from database...');
     
     const snapshot = await messagesRef
       .orderBy('timestamp', 'desc')
@@ -53,7 +73,7 @@ async function loadMessagesFromDB() {
       .get();
     
     if (snapshot.empty) {
-      console.log('No messages found in database');
+      broadcastLog('Messages', 'No messages found in database');
       return [];
     }
 
@@ -68,10 +88,10 @@ async function loadMessagesFromDB() {
     messages.sort((a, b) => a.timestamp - b.timestamp);
     
     global.messages = messages;
-    console.log(`Successfully loaded ${messages.length} messages from database`);
+    broadcastLog('Messages', `Successfully loaded ${messages.length} messages from database`);
     return messages;
   } catch (error) {
-    console.error('Error loading messages from DB:', error);
+    broadcastLog('Error', 'Error loading messages from DB', error);
     global.messages = [];
     return [];
   }
@@ -100,12 +120,19 @@ const io = new Server(httpServer, {
 
 // Add status endpoint
 app.get('/mobile/status', async (req, res) => {
+  broadcastLog('Status', 'Received status check request');
   try {
     const dbStatus = await db.collection('messages').limit(1).get()
-      .then(() => 'connected')
-      .catch(() => 'error');
+      .then(() => {
+        broadcastLog('Status', 'Database connection verified');
+        return 'connected';
+      })
+      .catch((error) => {
+        broadcastLog('Error', 'Database check failed', { code: error.code, message: error.message });
+        return 'error';
+      });
 
-    res.status(200).json({
+    const statusResponse = {
       status: 'ok',
       message: 'Server is ready',
       maintenance: false,
@@ -119,8 +146,12 @@ app.get('/mobile/status', async (req, res) => {
         status: dbStatus,
         messages: global.messages.length
       }
-    });
+    };
+    
+    broadcastLog('Status', 'Sending response', statusResponse);
+    res.status(200).json(statusResponse);
   } catch (error) {
+    broadcastLog('Error', 'Error handling status check', error.message);
     res.status(503).json({
       status: 'error',
       message: 'Service unavailable',
@@ -139,30 +170,30 @@ app.use('/api', messagesRouter);
 
 // Initialize server after loading messages
 async function initializeServer() {
-  console.log('Starting server initialization...');
+  broadcastLog('Server', 'Starting initialization...');
   try {
     // Load messages first
-    console.log('Loading messages...');
+    broadcastLog('Server', 'Loading messages...');
     const messages = await loadMessagesFromDB();
-    console.log('Loaded messages:', messages.length);
+    broadcastLog('Server', 'Loaded messages:', messages.length);
 
     // Socket.IO connection handling
     io.on('connection', (socket) => {
-      console.log('Client connected:', socket.id);
-      console.log('Current messages in memory:', global.messages.length);
+      broadcastLog('Socket', 'Client connected', socket.id);
+      broadcastLog('Socket', 'Current messages in memory:', global.messages.length);
 
       // Send existing messages to newly connected client
       socket.emit('receive_messages', { messages: global.messages });
-      console.log('Sent initial messages to client:', global.messages.length);
+      broadcastLog('Socket', 'Sent initial messages to client:', global.messages.length);
 
       socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
+        broadcastLog('Socket', 'Client disconnected', socket.id);
       });
 
       // Handle receiving a new message
       socket.on('send_message', async (data) => {
         try {
-          console.log('Received message data:', data);
+          broadcastLog('Socket', 'Received message data', data);
           
           const message = {
             id: data.id || Date.now().toString(),
@@ -174,7 +205,7 @@ async function initializeServer() {
           
           // Save to Firebase first
           await messagesRef.doc(message.id).set(message);
-          console.log('Message saved to database:', message);
+          broadcastLog('Socket', 'Message saved to database', message);
           
           // Add to global messages array
           global.messages.push(message);
@@ -185,10 +216,10 @@ async function initializeServer() {
           // Also send the updated full messages array
           io.emit('receive_messages', { messages: global.messages });
           
-          console.log('Message broadcasted:', message);
-          console.log('Current messages array:', global.messages);
+          broadcastLog('Socket', 'Message broadcasted', message);
+          broadcastLog('Socket', 'Current messages array', global.messages);
         } catch (error) {
-          console.error('Error handling message:', error);
+          broadcastLog('Error', 'Error handling message', error);
         }
       });
     });
@@ -196,16 +227,16 @@ async function initializeServer() {
     // Start server with Render's port
     const PORT = process.env.PORT || 10000; // Render expects port from env
     httpServer.listen(PORT, '0.0.0.0', () => { // Explicitly bind to all interfaces
-      console.log(`Server running on port ${PORT}`);
-      console.log('Messages loaded in memory:', global.messages.length);
+      broadcastLog('Server', 'Running on port', PORT);
+      broadcastLog('Server', 'Messages loaded in memory:', global.messages.length);
     });
   } catch (error) {
-    console.error('Error during server initialization:', error);
+    broadcastLog('Error', 'Error during initialization', error);
     throw error;
   }
 }
 
 // Start the server
 initializeServer().catch(error => {
-  console.error('Failed to initialize server:', error);
+  broadcastLog('Error', 'Failed to initialize', error);
 });
