@@ -6,6 +6,20 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const admin = require('firebase-admin');
 
+const app = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.IO first
+const io = new Server(httpServer, {
+  cors: {
+    origin: "https://gamer-app-10a85.web.app",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
 // Helper function for broadcasting logs
 function broadcastLog(type, message, data = null) {
   const logEntry = {
@@ -56,8 +70,6 @@ if (!admin.apps.length) {
 }
 
 const messagesRef = db.collection('messages');
-const app = express();
-const httpServer = createServer(app);
 
 // Initialize global messages array
 global.messages = [];
@@ -106,17 +118,6 @@ app.use(cors({
   methods: ['GET', 'POST'],
   credentials: true
 }));
-
-// Initialize Socket.IO with CORS settings
-const io = new Server(httpServer, {
-  cors: {
-    origin: "https://gamer-app-10a85.web.app",
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000
-});
 
 // Add status endpoint
 app.get('/mobile/status', async (req, res) => {
