@@ -23,6 +23,19 @@ if (!admin.apps.length) {
     console.log('Firebase Admin initialized successfully');
     
     db = admin.firestore();
+   
+    const messagesRef = db.collection('messages');
+    console.log('Messages collection reference created');
+
+  } catch (error) {
+    console.error('Failed to initialize Firebase:', error);
+    throw error;
+  }
+} else {
+  db = admin.firestore();
+}
+
+const messagesRef = db.collection('messages');
     
     // Initialize messages collection if it doesn't exist
     const messagesRef = db.collection('messages');
@@ -54,10 +67,10 @@ const httpServer = createServer(app);
 // Initialize global messages array
 global.messages = [];
 
-// Load initial messages from Firebase
-async function loadMessagesFromDB() {
+// Load initial messages from Firebaseasync function loadMessagesFromDB() {
   try {
     console.log('Starting to load messages from database...');
+    
     
     const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
     console.log('Got snapshot from database:', snapshot.size, 'documents');
@@ -80,6 +93,41 @@ async function loadMessagesFromDB() {
     return messages;
   } catch (error) {
     console.error('Error loading messages from DB:', error);
+    return [];
+  }
+}
+const collectionRef = db.collection('messages');
+const snapshot = await collectionRef.limit(1).get();
+
+if (snapshot.empty) {
+  console.log('Messages collection is empty, initializing with welcome message');
+  const welcomeMessage = {
+    id: 'welcome',
+    content: 'Welcome to the chat!',
+    sender: 'System',
+    timestamp: Date.now(),
+    platform: 'System'
+  };
+  await collectionRef.doc('welcome').set(welcomeMessage);
+  global.messages = [welcomeMessage];
+  return [welcomeMessage];
+}
+const messagesSnapshot = await collectionRef
+      .orderBy('timestamp', 'desc')
+      .limit(100)
+      .get();
+    
+    const messages = messagesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })).reverse();
+    
+    global.messages = messages;
+    console.log(`Successfully loaded ${messages.length} messages from database`);
+    return messages;
+  } catch (error) {
+    console.error('Error loading messages from DB:', error);
+    global.messages = [];
     return [];
   }
 }
