@@ -100,12 +100,35 @@ const io = new Server(httpServer, {
 
 // Add status endpoint
 app.get('/mobile/status', async (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    message: 'Server is ready',
-    maintenance: false,
-    timestamp: Date.now()
-  });
+  try {
+    const dbStatus = await db.collection('messages').limit(1).get()
+      .then(() => 'connected')
+      .catch(() => 'error');
+
+    res.status(200).json({
+      status: 'ok',
+      message: 'Server is ready',
+      maintenance: false,
+      timestamp: Date.now(),
+      server: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage().heapUsed,
+        connections: io.engine.clientsCount || 0
+      },
+      database: {
+        status: dbStatus,
+        messages: global.messages.length
+      }
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      message: 'Service unavailable',
+      maintenance: true,
+      timestamp: Date.now(),
+      error: error.message
+    });
+  }
 });
 
 // Mount the routes
