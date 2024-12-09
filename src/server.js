@@ -1,17 +1,15 @@
 // Location: gamer-app-backend/src/server.js
-import dotenv from 'dotenv';
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import admin from 'firebase-admin';
-import authRouter from './routes/auth.js';
-import messagesRouter from './routes/messages.js';
-
-dotenv.config();
+require('dotenv').config();
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const admin = require('firebase-admin');
 
 // Initialize Firebase Admin
 let db;
+let messagesRef;
+
 if (!admin.apps.length) {
   try {
     console.log('Initializing Firebase Admin...');
@@ -23,35 +21,14 @@ if (!admin.apps.length) {
     console.log('Firebase Admin initialized successfully');
     
     db = admin.firestore();
-   
-    const messagesRef = db.collection('messages');
-    console.log('Messages collection reference created');
-
-  } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-    throw error;
-  }
-} else {
-  db = admin.firestore();
-}
-
-const messagesRef = db.collection('messages');
     
-    // Initialize messages collection if it doesn't exist
-    const messagesRef = db.collection('messages');
-    await messagesRef.doc('initial').set({
-      content: 'Welcome to the chat!',
-      sender: 'System',
-      timestamp: Date.now(),
-      platform: 'System'
-    }, { merge: true })
-    .then(() => {
-      console.log('Messages collection initialized successfully');
-    })
-    .catch((error) => {
-      console.error('Error initializing messages collection:', error);
-    });
-
+    await db.collection('messages').get()
+      .then(() => {
+        console.log('Firebase connection test successful');
+      })
+      .catch((error) => {
+        console.error('Firebase connection test failed:', error);
+      });
   } catch (error) {
     console.error('Failed to initialize Firebase:', error);
     throw error;
@@ -60,67 +37,37 @@ const messagesRef = db.collection('messages');
   db = admin.firestore();
 }
 
-const messagesRef = db.collection('messages');
+messagesRef = db.collection('messages');
 const app = express();
 const httpServer = createServer(app);
 
 // Initialize global messages array
 global.messages = [];
 
-// Load initial messages from Firebaseasync function loadMessagesFromDB() {
+// Load initial messages from Firebase
+async function loadMessagesFromDB() {
   try {
     console.log('Starting to load messages from database...');
     
-    
-    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(100).get();
-    console.log('Got snapshot from database:', snapshot.size, 'documents');
+    const snapshot = await messagesRef
+      .orderBy('timestamp', 'desc')
+      .limit(100)
+      .get();
     
     if (snapshot.empty) {
       console.log('No messages found in database');
       return [];
     }
 
-    const messages = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
+    const messages = [];
+    snapshot.forEach(doc => {
+      messages.push({
         id: doc.id,
-        ...data
-      };
-    }).reverse();
+        ...doc.data()
+      });
+    });
     
-    global.messages = messages;
-    console.log('Successfully loaded messages from database:', messages.length);
-    return messages;
-  } catch (error) {
-    console.error('Error loading messages from DB:', error);
-    return [];
-  }
-}
-const collectionRef = db.collection('messages');
-const snapshot = await collectionRef.limit(1).get();
-
-if (snapshot.empty) {
-  console.log('Messages collection is empty, initializing with welcome message');
-  const welcomeMessage = {
-    id: 'welcome',
-    content: 'Welcome to the chat!',
-    sender: 'System',
-    timestamp: Date.now(),
-    platform: 'System'
-  };
-  await collectionRef.doc('welcome').set(welcomeMessage);
-  global.messages = [welcomeMessage];
-  return [welcomeMessage];
-}
-const messagesSnapshot = await collectionRef
-      .orderBy('timestamp', 'desc')
-      .limit(100)
-      .get();
-    
-    const messages = messagesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })).reverse();
+    messages.sort((a, b) => a.timestamp - b.timestamp);
     
     global.messages = messages;
     console.log(`Successfully loaded ${messages.length} messages from database`);
@@ -154,6 +101,8 @@ const io = new Server(httpServer, {
 });
 
 // Mount the routes
+const authRouter = require('./routes/auth');
+const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
