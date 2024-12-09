@@ -1,3 +1,8 @@
+// Location: gamer-app-backend/src/routes/auth.js
+// API routes for handling authentication
+// Handles:
+// - POST /api/login: Basic login endpoint
+
 import express from 'express';
 const router = express.Router();
 

@@ -1,10 +1,14 @@
 // Location: gamer-app-backend/src/server.js
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const admin = require('firebase-admin');
+import dotenv from 'dotenv';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import admin from 'firebase-admin';
+import authRouter from './routes/auth.js';
+import messagesRouter from './routes/messages.js';
+
+dotenv.config();
 
 // Initialize Firebase Admin
 let db;
@@ -102,8 +106,6 @@ const io = new Server(httpServer, {
 });
 
 // Mount the routes
-const authRouter = require('./routes/auth');
-const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
