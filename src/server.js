@@ -1,15 +1,17 @@
 // Location: gamer-app-backend/src/server.js
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const admin = require('firebase-admin');
+import dotenv from 'dotenv';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import admin from 'firebase-admin';
+import authRouter from './routes/auth.js';
+import messagesRouter from './routes/messages.js';
+
+dotenv.config();
 
 // Initialize Firebase Admin
 let db;
-let messagesRef;
-
 if (!admin.apps.length) {
   try {
     console.log('Initializing Firebase Admin...');
@@ -37,7 +39,7 @@ if (!admin.apps.length) {
   db = admin.firestore();
 }
 
-messagesRef = db.collection('messages');
+const messagesRef = db.collection('messages');
 const app = express();
 const httpServer = createServer(app);
 
@@ -101,8 +103,6 @@ const io = new Server(httpServer, {
 });
 
 // Mount the routes
-const authRouter = require('./routes/auth');
-const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
@@ -163,8 +163,8 @@ async function initializeServer() {
     });
 
     // Start server with Render's port
-    const PORT = process.env.PORT || 10000;
-    httpServer.listen(PORT, () => {
+    const PORT = process.env.PORT || 10000; // Render expects port from env
+    httpServer.listen(PORT, '0.0.0.0', () => { // Explicitly bind to all interfaces
       console.log(`Server running on port ${PORT}`);
       console.log('Messages loaded in memory:', global.messages.length);
     });
