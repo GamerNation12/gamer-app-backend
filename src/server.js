@@ -98,54 +98,21 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
+// Add status endpoint
+app.get('/mobile/status', async (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is ready',
+    maintenance: false,
+    timestamp: Date.now()
+  });
+});
+
 // Mount the routes
 const authRouter = require('./routes/auth');
 const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
-
-// Add status endpoint
-app.get('/mobile/status', (req, res) => {
-  try {
-    // Check if Firebase is initialized
-    if (!db) {
-      res.status(503).json({ 
-        status: 'error',
-        message: 'Database not initialized',
-        maintenance: true
-      });
-      return;
-    }
-
-    // Check if messages collection is accessible
-    messagesRef.limit(1).get()
-      .then(() => {
-        res.status(200).json({
-          status: 'ok',
-          message: 'Server is ready',
-          maintenance: false,
-          connections: io.engine.clientsCount,
-          messagesLoaded: global.messages.length
-        });
-      })
-      .catch((error) => {
-        res.status(503).json({
-          status: 'error',
-          message: 'Database connection error',
-          maintenance: true,
-          error: error.message
-        });
-      });
-
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: 'Server error',
-      maintenance: true,
-      error: error.message
-    });
-  }
-});
 
 // Initialize server after loading messages
 async function initializeServer() {
