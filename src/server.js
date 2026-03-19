@@ -12,10 +12,11 @@ const httpServer = createServer(app);
 // Initialize Socket.IO first
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://gamer-app-10a85.web.app",
+    origin: "https://gamer-chat-23709.web.app",
     methods: ["GET", "POST"],
     credentials: true
   },
+
   pingTimeout: 60000,
   pingInterval: 25000
 });
@@ -114,10 +115,11 @@ app.use(express.json());
 
 // Enable CORS for regular HTTP requests
 app.use(cors({
-  origin: 'https://gamer-app-10a85.web.app',
+  origin: 'https://gamer-chat-23709.web.app',
   methods: ['GET', 'POST'],
   credentials: true
 }));
+
 
 // Add status endpoint
 app.get('/mobile/status', async (req, res) => {
