@@ -55,8 +55,9 @@ if (!admin.apps.length) {
     db = admin.firestore();
     broadcastLog('Firebase', 'Firestore instance created');
     
-    await db.collection('messages').get()
+    db.collection('messages').get()
       .then(() => {
+
         broadcastLog('Firebase', 'Connection test successful');
       })
       .catch((error) => {
