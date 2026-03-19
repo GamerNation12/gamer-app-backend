@@ -198,40 +198,22 @@ async function initializeServer() {
         broadcastLog('Socket', 'Client disconnected', socket.id);
       });
 
-      // Handle receiving a new message
-      socket.on('send_message', async (data) => {
-        try {
-          broadcastLog('Socket', 'Received message data', data);
-          
-          const message = {
-            id: data.id || Date.now().toString(),
-            sender: data.sender,
-            content: data.content,
-            timestamp: data.timestamp || Date.now(),
-            platform: data.platform || 'Web'
-          };
-          
-          // Save to Firebase first
-          await messagesRef.child(message.id).set(message);
+      // Handle receiving a new message from frontend
+      socket.on('newMessage', (message) => {
+        broadcastLog('Socket', 'Broadcast newMessage', message);
+        socket.broadcast.emit('newMessage', message);
+      });
 
-          broadcastLog('Socket', 'Message saved to database', message);
-          
-          // Add to global messages array
-          global.messages.push(message);
-          
-          // Send the single new message to all clients
-          io.emit('receive_message', message);
-          
-          // Also send the updated full messages array
-          io.emit('receive_messages', { messages: global.messages });
-          
-          broadcastLog('Socket', 'Message broadcasted', message);
-          broadcastLog('Socket', 'Current messages array', global.messages);
-        } catch (error) {
-          broadcastLog('Error', 'Error handling message', error);
-        }
+      // Handle typing events
+      socket.on('typing', (username) => {
+        socket.broadcast.emit('userTyping', username);
+      });
+
+      socket.on('stopTyping', (username) => {
+        socket.broadcast.emit('userStopTyping', username);
       });
     });
+
 
     // Start server with Render's port
     const PORT = process.env.PORT || 10000; // Render expects port from env
