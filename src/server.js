@@ -48,15 +48,16 @@ if (!admin.apps.length) {
     
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+      databaseURL: `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
     });
     broadcastLog('Firebase', 'Admin initialized with project:', serviceAccount.project_id);
     
-    db = admin.firestore();
-    broadcastLog('Firebase', 'Firestore instance created');
+    db = admin.database();
+    broadcastLog('Firebase', 'Database instance created');
     
-    db.collection('messages').get()
+    db.ref('.info/connected').once('value')
       .then(() => {
+
 
         broadcastLog('Firebase', 'Connection test successful');
       })
@@ -68,10 +69,11 @@ if (!admin.apps.length) {
     throw error;
   }
 } else {
-  db = admin.firestore();
+  db = admin.database();
 }
 
-const messagesRef = db.collection('messages');
+const messagesRef = db.ref('messages');
+
 
 // Initialize global messages array
 global.messages = [];
@@ -82,22 +84,23 @@ async function loadMessagesFromDB() {
     broadcastLog('Messages', 'Starting to load messages from database...');
     
     const snapshot = await messagesRef
-      .orderBy('timestamp', 'desc')
-      .limit(100)
-      .get();
+      .orderByChild('timestamp')
+      .limitToLast(100)
+      .once('value');
     
-    if (snapshot.empty) {
+    if (!snapshot.exists()) {
       broadcastLog('Messages', 'No messages found in database');
       return [];
     }
 
     const messages = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach(child => {
       messages.push({
-        id: doc.id,
-        ...doc.data()
+        id: child.key,
+        ...child.val()
       });
     });
+
     
     messages.sort((a, b) => a.timestamp - b.timestamp);
     
@@ -126,8 +129,9 @@ app.use(cors({
 app.get('/mobile/status', async (req, res) => {
   broadcastLog('Status', 'Received status check request');
   try {
-    const dbStatus = await db.collection('messages').limit(1).get()
+    const dbStatus = await db.ref('.info/connected').once('value')
       .then(() => {
+
         broadcastLog('Status', 'Database connection verified');
         return 'connected';
       })
@@ -208,7 +212,8 @@ async function initializeServer() {
           };
           
           // Save to Firebase first
-          await messagesRef.doc(message.id).set(message);
+          await messagesRef.child(message.id).set(message);
+
           broadcastLog('Socket', 'Message saved to database', message);
           
           // Add to global messages array

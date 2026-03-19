@@ -14,7 +14,8 @@ router.get('/messages', async (req, res) => {
   try {
     // Access the messages array from the global scope
     const messages = global.messages || [];
-    res.status(200).json({ messages }); // Send as {messages: [...]}
+    res.status(200).json(messages); // Send as array instead of object
+
   } catch (error) {
     console.error('Error loading messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
@@ -39,11 +40,20 @@ router.post('/messages', async (req, res) => {
       platform: platform || 'Web'
     };
 
+    // Save to Firebase first
+    const admin = require('firebase-admin');
+    if (admin.apps.length) {
+      const db = admin.database();
+      await db.ref('messages').child(message.id).set(message);
+    }
+
+
     // Add to global messages array
     if (!global.messages) global.messages = [];
     global.messages.push(message);
     
-    res.status(200).json({ messages: global.messages }); // Send back full array
+    res.status(200).json(message); // Send back success
+
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
