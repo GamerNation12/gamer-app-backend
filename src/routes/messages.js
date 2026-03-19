@@ -5,8 +5,9 @@
 // - POST /api/messages: Saves new messages to Firebase
 // - Message validation and error handling
 
-import express from 'express';
+const express = require('express');
 const router = express.Router();
+
 
 // Get messages
 router.get('/messages', async (req, res) => {
@@ -49,4 +50,4 @@ router.post('/messages', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

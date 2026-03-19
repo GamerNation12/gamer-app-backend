@@ -3,8 +3,9 @@
 // Handles:
 // - POST /api/login: Basic login endpoint
 
-import express from 'express';
+const express = require('express');
 const router = express.Router();
+
 
 router.post('/login', async (req, res) => {
   try {
@@ -16,4 +17,4 @@ router.post('/login', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
