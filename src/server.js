@@ -95,11 +95,15 @@ async function loadMessagesFromDB() {
 
     const messages = [];
     snapshot.forEach(child => {
-      messages.push({
-        id: child.key,
-        ...child.val()
-      });
+      const val = child.val();
+      if (val && typeof val === 'object' && val.sender && val.content) {
+        messages.push({
+          id: child.key,
+          ...val
+        });
+      }
     });
+
 
     
     messages.sort((a, b) => a.timestamp - b.timestamp);
