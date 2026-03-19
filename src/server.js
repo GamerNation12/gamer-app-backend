@@ -228,6 +228,11 @@ async function initializeServer() {
         socket.broadcast.emit('newMessage', message);
       });
 
+      socket.on('deleteMessage', (id) => {
+        broadcastLog('Socket', 'Broadcast deleteMessage', id);
+        socket.broadcast.emit('deleteMessage', id);
+      });
+
       // Handle typing events
       socket.on('typing', (username) => {
         socket.broadcast.emit('userTyping', username);

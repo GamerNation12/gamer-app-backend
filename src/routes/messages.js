@@ -22,6 +22,11 @@ router.get('/messages', async (req, res) => {
   }
 });
 
+// Anti-spam map: Tracks last message timestamp per username (or IP)
+const rateLimitMap = new Map();
+const COOLDOWN_MS = 2000; // 2 seconds
+const MAX_LENGTH = 500; // 500 characters
+
 // Send message
 router.post('/messages', async (req, res) => {
   try {
@@ -31,6 +36,21 @@ router.post('/messages', async (req, res) => {
     if (!sender || !content) {
       return res.status(400).json({ error: 'Invalid message format' });
     }
+
+    if (content.length > MAX_LENGTH) {
+      return res.status(400).json({ error: `Message exceeds maximum length of ${MAX_LENGTH} characters` });
+    }
+
+    // Rate Limiting
+    const now = Date.now();
+    if (rateLimitMap.has(sender)) {
+      const timeSinceLastMessage = now - rateLimitMap.get(sender);
+      if (timeSinceLastMessage < COOLDOWN_MS) {
+        return res.status(429).json({ error: 'Please wait before sending another message' });
+      }
+    }
+    rateLimitMap.set(sender, now);
+
 
     const message = {
       id: id || Date.now().toString(),
@@ -57,6 +77,30 @@ router.post('/messages', async (req, res) => {
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// Delete message
+router.delete('/messages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Remove from global memory
+    if (global.messages) {
+      global.messages = global.messages.filter(msg => msg.id !== id);
+    }
+
+    // Remove from Firebase Realtime Database
+    const admin = require('firebase-admin');
+    if (admin.apps.length) {
+      const db = admin.database();
+      await db.ref('messages').child(id).remove();
+    }
+
+    res.status(200).json({ success: true, message: 'Message deleted' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: 'Failed to delete message' });
   }
 });
 
