@@ -180,7 +180,11 @@ const messagesRouter = require('./routes/messages');
 app.use('/api', authRouter);
 app.use('/api', messagesRouter);
 
+// Track online users
+const onlineUsers = new Map();
+
 // Initialize server after loading messages
+
 async function initializeServer() {
   broadcastLog('Server', 'Starting initialization...');
   try {
@@ -198,11 +202,27 @@ async function initializeServer() {
       socket.emit('receive_messages', { messages: global.messages });
       broadcastLog('Socket', 'Sent initial messages to client:', global.messages.length);
 
+      // Send existing online users to newly connected client
+      socket.emit('updateOnlineUsers', Array.from(new Set(onlineUsers.values())));
+
+      socket.on('user_join', (username) => {
+        onlineUsers.set(socket.id, username);
+        io.emit('updateOnlineUsers', Array.from(new Set(onlineUsers.values())));
+        broadcastLog('Socket', 'User joined:', username);
+      });
+
       socket.on('disconnect', () => {
+        if (onlineUsers.has(socket.id)) {
+          const username = onlineUsers.get(socket.id);
+          onlineUsers.delete(socket.id);
+          io.emit('updateOnlineUsers', Array.from(new Set(onlineUsers.values())));
+          broadcastLog('Socket', 'User disconnected/left:', username);
+        }
         broadcastLog('Socket', 'Client disconnected', socket.id);
       });
 
       // Handle receiving a new message from frontend
+
       socket.on('newMessage', (message) => {
         broadcastLog('Socket', 'Broadcast newMessage', message);
         socket.broadcast.emit('newMessage', message);
