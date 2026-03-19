@@ -13,7 +13,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: "https://gamer-chat-23709.web.app",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE"],
     credentials: true
   },
 
@@ -124,7 +124,7 @@ app.use(express.json());
 // Enable CORS for regular HTTP requests
 app.use(cors({
   origin: 'https://gamer-chat-23709.web.app',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'DELETE'],
   credentials: true
 }));
 
